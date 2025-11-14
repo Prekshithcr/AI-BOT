@@ -73,25 +73,10 @@ conn = init_db()
 # ----------------------
 # DeepSeek interaction
 # ----------------------
-def ask_deepseek_suggestions(payload: Dict) -> str:
-    """
-    Call DeepSeek's chat completions endpoint and return the assistant's text.
-    Returns a friendly error message if something goes wrong.
-    """
+def call_deepseek(messages, max_tokens: int = 350, temperature: float = 0.2) -> str:
+    """Low-level helper to call DeepSeek with an array of messages."""
     if not DEEPSEEK_API_KEY:
         return "DEEPSEEK_API_KEY not set. Add it to your .env file."
-
-    prompt = (
-        f"You are StudyBuddy, a concise professional education consultant.\n"
-        f"Student info:\n"
-        f"- Name: {payload.get('full_name')}\n"
-        f"- Preferred city(s): {payload.get('preferred_cities')}\n"
-        f"- Program: {payload.get('program_interest')}\n"
-        f"- Country: {payload.get('country_of_origin')}\n"
-        f"- Qualification: {payload.get('current_qualification')}\n\n"
-        "Suggest exactly 3 study cities (City — one-line reason each) "
-        "and one clear next step (one sentence). Keep it concise and actionable."
-    )
 
     url = f"{DEEPSEEK_BASE_URL}/chat/completions"
     headers = {
@@ -100,15 +85,9 @@ def ask_deepseek_suggestions(payload: Dict) -> str:
     }
     body = {
         "model": DEEPSEEK_MODEL,
-        "messages": [
-            {
-                "role": "system",
-                "content": "You are a concise, friendly professional education consultant named StudyBuddy."
-            },
-            {"role": "user", "content": prompt},
-        ],
-        "max_tokens": 350,
-        "temperature": 0.2,
+        "messages": messages,
+        "max_tokens": max_tokens,
+        "temperature": temperature,
     }
 
     try:
@@ -136,12 +115,70 @@ def ask_deepseek_suggestions(payload: Dict) -> str:
         return f"Error contacting DeepSeek API: {e}"
 
 
+def ask_deepseek_suggestions(payload: Dict) -> str:
+    """Generate 3 city suggestions + next step based on intake form."""
+    prompt = (
+        f"You are StudyBuddy, a concise professional education consultant.\n"
+        f"Student info:\n"
+        f"- Name: {payload.get('full_name')}\n"
+        f"- Preferred city(s): {payload.get('preferred_cities')}\n"
+        f"- Program: {payload.get('program_interest')}\n"
+        f"- Country: {payload.get('country_of_origin')}\n"
+        f"- Qualification: {payload.get('current_qualification')}\n\n"
+        "Suggest exactly 3 study cities (City — one-line reason each) "
+        "and one clear next step (one sentence). Keep it concise and actionable."
+    )
+
+    messages = [
+        {
+            "role": "system",
+            "content": "You are a concise, friendly professional education consultant named StudyBuddy.",
+        },
+        {"role": "user", "content": prompt},
+    ]
+    return call_deepseek(messages, max_tokens=350, temperature=0.2)
+
+
+def ask_deepseek_chat(question: str, payload: Dict | None) -> str:
+    """
+    Chat-style follow-up: answer student's question conversationally.
+    Uses the intake info (if available) as context.
+    """
+    context = ""
+    if payload:
+        context = (
+            f"Student profile:\n"
+            f"- Name: {payload.get('full_name')}\n"
+            f"- Preferred cities: {payload.get('preferred_cities')}\n"
+            f"- Program: {payload.get('program_interest')}\n"
+            f"- Country: {payload.get('country_of_origin')}\n"
+            f"- Qualification: {payload.get('current_qualification')}\n"
+            f"- Target intake: {payload.get('target_intake')}\n"
+            f"- Budget: {payload.get('budget_estimate')}\n\n"
+        )
+    prompt = (
+        context
+        + "You are StudyBuddy, a calm, supportive, realistic study-abroad consultant. "
+          "Answer the student's question in 2–3 short sentences. Be helpful but avoid legal/visa guarantees.\n\n"
+          f"Student question: {question}"
+    )
+
+    messages = [
+        {
+            "role": "system",
+            "content": "You are a friendly, concise study-abroad assistant named StudyBuddy.",
+        },
+        {"role": "user", "content": prompt},
+    ]
+    return call_deepseek(messages, max_tokens=220, temperature=0.4)
+
+
 # ----------------------
 # Streamlit UI CONFIG
 # ----------------------
 st.set_page_config(page_title="StudyBuddy (DeepSeek)", layout="wide")
 
-# Custom CSS for compact, aesthetic layout
+# Custom CSS
 st.markdown(
     """
     <style>
@@ -175,11 +212,14 @@ st.markdown(
         box-shadow: 0 18px 45px rgba(0, 0, 0, 0.55);
         backdrop-filter: blur(18px);
     }
-    .stTextInput>div>div>input, .stSelectbox>div>div>select {
+    .stTextInput>div>div>input, .stSelectbox>div>div>select, textarea {
         background-color: #050712 !important;
         border-radius: 999px !important;
     }
-    .stTextInput>label, .stSelectbox>label {
+    textarea {
+        border-radius: 16px !important;
+    }
+    .stTextInput>label, .stSelectbox>label, .stTextArea>label {
         font-size: 0.8rem;
         color: #E5E7EB;
     }
@@ -204,6 +244,35 @@ st.markdown(
     }
     footer {visibility: hidden;}
     #MainMenu {visibility: hidden;}
+
+    /* Chat bubbles */
+    .chat-container {
+        max-height: 260px;
+        overflow-y: auto;
+        padding: 0.4rem 0.2rem;
+        margin-bottom: 0.5rem;
+    }
+    .chat-bubble {
+        padding: 0.45rem 0.75rem;
+        border-radius: 16px;
+        margin-bottom: 0.4rem;
+        font-size: 0.85rem;
+        max-width: 92%;
+        line-height: 1.35;
+    }
+    .chat-user {
+        background: #2563EB;
+        color: white;
+        margin-left: auto;
+        border-bottom-right-radius: 4px;
+    }
+    .chat-bot {
+        background: #111827;
+        color: #E5E7EB;
+        border-bottom-left-radius: 4px;
+        border: 1px solid rgba(148, 163, 184, 0.35);
+        margin-right: auto;
+    }
     </style>
     """,
     unsafe_allow_html=True,
@@ -212,15 +281,26 @@ st.markdown(
 # Title
 st.markdown("<h1 class='big-title'>StudyBuddy</h1>", unsafe_allow_html=True)
 st.markdown(
-    "<p class='subtitle'>Smart, quick study-abroad assistant — fill once, get city suggestions & a mock interview link.</p>",
+    "<p class='subtitle'>Smart, quick study-abroad assistant — fill once, get city suggestions & chat follow-up.</p>",
     unsafe_allow_html=True,
 )
 
 mode = st.sidebar.selectbox("Mode", ["Apply (Student)", "Admin"])
 
+# Keep student context in session_state for chat
+if "student_payload" not in st.session_state:
+    st.session_state.student_payload = None
+if "chat_history" not in st.session_state:
+    st.session_state.chat_history = [
+        {
+            "role": "assistant",
+            "content": "Hi! I’m StudyBuddy. After you fill your details, you can ask me follow-up questions here.",
+        }
+    ]
+
 
 # ----------------------
-# Student Apply Mode (compact)
+# Student Apply Mode (with chat box)
 # ----------------------
 if mode == "Apply (Student)":
     with st.container():
@@ -281,6 +361,7 @@ if mode == "Apply (Student)":
                     "preferred_contact_method": contact_method,
                     "consent": int(consent),
                 }
+                st.session_state.student_payload = payload  # save for chat context
 
                 with st.spinner("Thinking about the best cities for you..."):
                     suggestion = ask_deepseek_suggestions(payload)
@@ -323,13 +404,53 @@ if mode == "Apply (Student)":
                 st.markdown("---")
                 st.markdown("#### Book a quick mock interview")
                 st.markdown(
-                    f"<p class='small-label'>Pick a time that suits you — a counsellor will join you on the call.</p>",
+                    f"<p class='small-label'>Pick a time that suits you — a counselor will join you on the call.</p>",
                     unsafe_allow_html=True,
                 )
                 st.markdown(
                     f"[Open Calendly to schedule →]({CALENDLY_EMBED_LINK})",
                     unsafe_allow_html=True,
                 )
+
+        # --- Chat section ---
+        st.markdown("---")
+        st.markdown("#### Chat with StudyBuddy")
+
+        # Render chat history
+        chat_container = st.container()
+        with chat_container:
+            st.markdown('<div class="chat-container">', unsafe_allow_html=True)
+            for msg in st.session_state.chat_history:
+                css_class = "chat-bot" if msg["role"] == "assistant" else "chat-user"
+                st.markdown(
+                    f"<div class='chat-bubble {css_class}'>{msg['content']}</div>",
+                    unsafe_allow_html=True,
+                )
+            st.markdown("</div>", unsafe_allow_html=True)
+
+        # Chat input
+        chat_col1, chat_col2 = st.columns([4, 1])
+        with chat_col1:
+            user_msg = st.text_input(
+                "Ask anything about studying abroad",
+                placeholder="e.g. Is my budget enough for Canada?",
+                key="chat_input",
+            )
+        with chat_col2:
+            send = st.button("Send", key="chat_send")
+
+        if send and user_msg.strip():
+            # Add user message
+            st.session_state.chat_history.append(
+                {"role": "user", "content": user_msg.strip()}
+            )
+            with st.spinner("StudyBuddy is replying..."):
+                reply = ask_deepseek_chat(user_msg.strip(), st.session_state.student_payload)
+            st.session_state.chat_history.append(
+                {"role": "assistant", "content": reply}
+            )
+            # Clear input for next message
+            st.session_state.chat_input = ""
 
         st.markdown("</div>", unsafe_allow_html=True)
 
@@ -390,3 +511,4 @@ elif mode == "Admin":
                         st.code(sid, language="text")
 
         st.markdown("</div>", unsafe_allow_html=True)
+
