@@ -176,6 +176,9 @@ def ask_deepseek_chat(question: str, payload: Dict | None) -> str:
 # ----------------------
 # Streamlit UI CONFIG
 # ----------------------
+# ----------------------
+# Streamlit UI CONFIG
+# ----------------------
 st.set_page_config(page_title="StudyBuddy (DeepSeek)", layout="wide")
 
 # Custom CSS
@@ -404,8 +407,142 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-
 # Title
+st.markdown("<h1 class='big-title'>StudyBuddy</h1>", unsafe_allow_html=True)
+st.markdown(
+    "<p class='subtitle'>Smart, quick study-abroad assistant — fill once, get city suggestions & chat follow-up.</p>",
+    unsafe_allow_html=True,
+)
+
+mode = st.sidebar.selectbox("Mode", ["Apply (Student)", "Admin"])
+
+# Keep student context in session_state for chat
+if "student_payload" not in st.session_state:
+    st.session_state.student_payload = None
+if "chat_history" not in st.session_state:
+    st.session_state.chat_history = [
+        {
+            "role": "assistant",
+            "content": "Hi! I’m StudyBuddy. After you fill your details, you can ask me follow-up questions here.",
+        }
+    ]
+
+# ----------------------
+# Student Apply Mode + 3-column chat
+# ----------------------
+if mode == "Apply (Student)":
+    with st.container():
+        st.markdown('<div class="card">', unsafe_allow_html=True)
+
+        st.markdown("### Quick intake form")
+
+        col_left, col_right = st.columns(2)
+
+        with st.form("student_form"):
+            with col_left:
+                full_name = st.text_input("Full name")
+                email = st.text_input("Email")
+                phone = st.text_input("Phone (optional)")
+                country = st.text_input("Country of origin")
+                preferred_cities = st.text_input(
+                    "Preferred city / cities",
+                    placeholder="e.g. Toronto, Melbourne (or leave blank)",
+                )
+
+            with col_right:
+                program = st.selectbox(
+                    "Program interest",
+                    ["Masters", "Bachelors", "PhD", "Language", "Other"],
+                )
+                qualification = st.text_input(
+                    "Current qualification",
+                    placeholder="e.g. B.Tech CSE, 8.1 CGPA",
+                )
+                intake = st.text_input("Target intake", placeholder="e.g. 2026-09")
+                budget = st.text_input(
+                    "Budget (approx)", placeholder="e.g. 20,00,000 INR"
+                )
+                contact_method = st.selectbox(
+                    "Preferred contact", ["Email", "Phone / WhatsApp"]
+                )
+
+            consent = st.checkbox(
+                "I consent to sharing my info for counselling purposes.",
+                value=True,
+            )
+            submitted = st.form_submit_button("Get city suggestions")
+
+        if submitted:
+            if not (full_name and email and consent):
+                st.error("Please provide at least your name, email, and consent.")
+            else:
+                sid = str(uuid.uuid4())
+                now = datetime.datetime.utcnow().isoformat()
+
+                payload = {
+                    "full_name": full_name,
+                    "email": email,
+                    "phone": phone,
+                    "country_of_origin": country,
+                    "preferred_cities": preferred_cities,
+                    "program_interest": program,
+                    "current_qualification": qualification,
+                    "target_intake": intake,
+                    "budget_estimate": budget,
+                    "preferred_contact_method": contact_method,
+                    "consent": int(consent),
+                }
+                st.session_state.student_payload = payload  # save for chat context
+
+                with st.spinner("Thinking about the best cities for you..."):
+                    suggestion = ask_deepseek_suggestions(payload)
+
+                # Save to DB
+                cur = conn.cursor()
+                cur.execute(
+                    """
+                    INSERT INTO students (
+                        id, full_name, email, phone, country_of_origin, preferred_cities,
+                        program_interest, current_qualification, target_intake, budget_estimate,
+                        preferred_contact_method, consent, created_at, suggestion_text
+                    )
+                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                    """,
+                    (
+                        sid,
+                        full_name,
+                        email,
+                        phone,
+                        country,
+                        preferred_cities,
+                        program,
+                        qualification,
+                        intake,
+                        budget,
+                        contact_method,
+                        int(consent),
+                        now,
+                        suggestion,
+                    ),
+                )
+                conn.commit()
+
+                st.success("Got it! Here’s what I recommend:")
+
+                st.markdown("#### Personalized suggestions")
+                st.write(suggestion)
+
+                st.markdown("---")
+                st.markdown("#### Book a quick mock interview")
+                st.markdown(
+                    "<p class='small-label'>Pick a time that suits you — a counselor will join you on the call.</p>",
+                    unsafe_allow_html=True,
+                )
+                st.markdown(
+                    f"[Open Calendly to schedule →]({CALENDLY_EMBED_LINK})",
+                    unsafe_allow_html=True,
+                )
+
         # --- Chat section in 3-column theme ---
         st.markdown("---")
         st.markdown("#### Live chat")
@@ -427,7 +564,7 @@ st.markdown(
                         <div class="chat-avatar"></div>
                         <div>
                             <div class="chat-list-name">You</div>
-                            <div class="chat-list-preview">Study plans & budget</div>
+                            <div class="chat-list-preview">Study plans &amp; budget</div>
                         </div>
                     </div>
                     <div class="chat-list-item">
@@ -453,7 +590,6 @@ st.markdown(
         with col_chat_mid:
             st.markdown('<div class="chat-column-card">', unsafe_allow_html=True)
 
-            # history
             chat_container = st.container()
             with chat_container:
                 st.markdown('<div class="chat-container">', unsafe_allow_html=True)
@@ -465,7 +601,6 @@ st.markdown(
                     )
                 st.markdown("</div>", unsafe_allow_html=True)
 
-            # input row
             chat_input_col, chat_button_col = st.columns([4, 1])
             with chat_input_col:
                 user_msg = st.text_input(
@@ -518,7 +653,10 @@ st.markdown(
                 unsafe_allow_html=True,
             )
 
-            st.markdown('<div class="profile-section-title">General info</div>', unsafe_allow_html=True)
+            st.markdown(
+                '<div class="profile-section-title">General info</div>',
+                unsafe_allow_html=True,
+            )
             st.markdown(
                 f"""
                 <div class="profile-item"><strong>Country:</strong> {country}</div>
@@ -544,6 +682,7 @@ st.markdown(
 
             st.markdown("</div>", unsafe_allow_html=True)
 
+        st.markdown("</div>", unsafe_allow_html=True)
 
 # ----------------------
 # Admin Mode (compact)
@@ -573,7 +712,6 @@ elif mode == "Admin":
             if not rows:
                 st.info("No submissions yet.")
             else:
-                # Show as short table first
                 st.caption("Recent submissions")
                 preview = [
                     {
@@ -601,4 +739,5 @@ elif mode == "Admin":
                         st.code(sid, language="text")
 
         st.markdown("</div>", unsafe_allow_html=True)
+
 
