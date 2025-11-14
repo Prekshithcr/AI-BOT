@@ -1,4 +1,3 @@
-
 # studybuddy_streamlit.py
 """
 StudyBuddy — Simple Streamlit intake app using DeepSeek for suggestions.
@@ -9,12 +8,6 @@ Environment variables expected (set in .env):
   - DEEPSEEK_MODEL          (optional, default: deepseek-chat)
   - STUDYBUDDY_ADMIN_PW     (optional, default: adminpass)
   - CALENDLY_EMBED_LINK     (optional; default demo link)
-
-The app:
-  - Shows a student intake form
-  - Calls DeepSeek to generate 3 city suggestions + next step
-  - Saves everything into a local SQLite DB (students.db)
-  - Provides a simple admin view of all submissions
 """
 
 import os
@@ -40,8 +33,8 @@ CALENDLY_EMBED_LINK = os.getenv(
     "https://calendly.com/your-organization/30min"
 )
 
-# SQLite DB path (local file)
 DB_PATH = "students.db"
+
 
 # ----------------------
 # Database helpers
@@ -73,7 +66,9 @@ def init_db(db_path: str = DB_PATH):
     conn.commit()
     return conn
 
+
 conn = init_db()
+
 
 # ----------------------
 # DeepSeek interaction
@@ -86,7 +81,6 @@ def ask_deepseek_suggestions(payload: Dict) -> str:
     if not DEEPSEEK_API_KEY:
         return "DEEPSEEK_API_KEY not set. Add it to your .env file."
 
-    # Compose prompt for the model
     prompt = (
         f"You are StudyBuddy, a concise professional education consultant.\n"
         f"Student info:\n"
@@ -109,7 +103,7 @@ def ask_deepseek_suggestions(payload: Dict) -> str:
         "messages": [
             {
                 "role": "system",
-                "content": "You are a concise professional education consultant named StudyBuddy."
+                "content": "You are a concise, friendly professional education consultant named StudyBuddy."
             },
             {"role": "user", "content": prompt},
         ],
@@ -122,19 +116,17 @@ def ask_deepseek_suggestions(payload: Dict) -> str:
         resp.raise_for_status()
         j = resp.json()
 
-        # DeepSeek uses OpenAI-compatible format
         if "choices" in j and len(j["choices"]) > 0:
             choice = j["choices"][0]
             if "message" in choice and isinstance(choice["message"], dict):
                 content = choice["message"].get("content", "")
                 return content.strip()
-            if "text" in choice:  # fallback if text field used
+            if "text" in choice:
                 return choice["text"].strip()
 
         return f"(Unexpected DeepSeek response format) {j}"
 
     except requests.exceptions.HTTPError as he:
-        # Try to decode error body
         try:
             err_json = resp.json()
             return f"DeepSeek API HTTP error: {err_json}"
@@ -143,144 +135,258 @@ def ask_deepseek_suggestions(payload: Dict) -> str:
     except Exception as e:
         return f"Error contacting DeepSeek API: {e}"
 
+
 # ----------------------
-# Streamlit UI
+# Streamlit UI CONFIG
 # ----------------------
-st.set_page_config(page_title="StudyBuddy (DeepSeek)", layout="centered")
-st.title("StudyBuddy — Student Intake Assistant (DeepSeek)")
+st.set_page_config(page_title="StudyBuddy (DeepSeek)", layout="wide")
+
+# Custom CSS for compact, aesthetic layout
+st.markdown(
+    """
+    <style>
+    .main {
+        background: radial-gradient(circle at top, #151821 0, #050509 55%);
+        color: #F5F5F7;
+    }
+    .block-container {
+        padding-top: 1.5rem;
+        padding-bottom: 1.5rem;
+        max-width: 900px;
+        margin: auto;
+    }
+    h1.big-title {
+        font-size: 2.2rem;
+        font-weight: 700;
+        text-align: center;
+        margin-bottom: 0.2rem;
+    }
+    p.subtitle {
+        text-align: center;
+        margin-top: 0;
+        color: #9CA3AF;
+        font-size: 0.9rem;
+    }
+    .card {
+        background: rgba(17, 24, 39, 0.92);
+        border-radius: 18px;
+        padding: 1.2rem 1.2rem 1.3rem 1.2rem;
+        border: 1px solid rgba(148, 163, 184, 0.35);
+        box-shadow: 0 18px 45px rgba(0, 0, 0, 0.55);
+        backdrop-filter: blur(18px);
+    }
+    .stTextInput>div>div>input, .stSelectbox>div>div>select {
+        background-color: #050712 !important;
+        border-radius: 999px !important;
+    }
+    .stTextInput>label, .stSelectbox>label {
+        font-size: 0.8rem;
+        color: #E5E7EB;
+    }
+    .stCheckbox>label {
+        font-size: 0.8rem;
+    }
+    .stButton>button {
+        width: 100%;
+        border-radius: 999px;
+        background: linear-gradient(135deg, #4f46e5, #06b6d4);
+        border: none;
+        color: white;
+        font-weight: 600;
+        padding: 0.45rem 0;
+    }
+    .stButton>button:hover {
+        filter: brightness(1.08);
+    }
+    .small-label {
+        font-size: 0.8rem;
+        color: #9CA3AF;
+    }
+    footer {visibility: hidden;}
+    #MainMenu {visibility: hidden;}
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
+# Title
+st.markdown("<h1 class='big-title'>StudyBuddy</h1>", unsafe_allow_html=True)
+st.markdown(
+    "<p class='subtitle'>Smart, quick study-abroad assistant — fill once, get city suggestions & a mock interview link.</p>",
+    unsafe_allow_html=True,
+)
 
 mode = st.sidebar.selectbox("Mode", ["Apply (Student)", "Admin"])
 
+
 # ----------------------
-# Student Apply Mode
+# Student Apply Mode (compact)
 # ----------------------
 if mode == "Apply (Student)":
-    st.header("Quick intake form")
+    with st.container():
+        st.markdown('<div class="card">', unsafe_allow_html=True)
 
-    with st.form("student_form"):
-        full_name = st.text_input("Full name")
-        email = st.text_input("Email")
-        phone = st.text_input("Phone (optional)")
-        country = st.text_input("Country of origin")
-        preferred_cities = st.text_input(
-            "Preferred city or leave blank for suggestions (comma separated)"
-        )
-        program = st.selectbox(
-            "Program interest", ["Masters", "Bachelors", "PhD", "Language", "Other"]
-        )
-        qualification = st.text_input(
-            "Current qualification (e.g., B.Tech, GPA/Percentage)"
-        )
-        intake = st.text_input("Target intake (e.g., 2026-09)")
-        budget = st.text_input("Budget estimate (approx)")
-        contact_method = st.selectbox(
-            "Preferred contact", ["Email", "Phone / WhatsApp"]
-        )
-        consent = st.checkbox(
-            "I consent to sharing my info with the consultancy"
-        )
-        submitted = st.form_submit_button("Submit")
+        st.markdown("### Quick intake form")
 
-    if submitted:
-        if not (full_name and email and consent):
-            st.error("Please provide your name, email, and consent to proceed.")
+        col_left, col_right = st.columns(2)
+
+        with st.form("student_form"):
+            with col_left:
+                full_name = st.text_input("Full name")
+                email = st.text_input("Email")
+                phone = st.text_input("Phone (optional)")
+                country = st.text_input("Country of origin")
+                preferred_cities = st.text_input(
+                    "Preferred city / cities",
+                    placeholder="e.g. Toronto, Melbourne (or leave blank)",
+                )
+
+            with col_right:
+                program = st.selectbox(
+                    "Program interest", ["Masters", "Bachelors", "PhD", "Language", "Other"]
+                )
+                qualification = st.text_input(
+                    "Current qualification",
+                    placeholder="e.g. B.Tech CSE, 8.1 CGPA",
+                )
+                intake = st.text_input("Target intake", placeholder="e.g. 2026-09")
+                budget = st.text_input("Budget (approx)", placeholder="e.g. 20,00,000 INR")
+                contact_method = st.selectbox(
+                    "Preferred contact", ["Email", "Phone / WhatsApp"]
+                )
+
+            consent = st.checkbox(
+                "I consent to sharing my info for counselling purposes.",
+                value=True,
+            )
+            submitted = st.form_submit_button("Get city suggestions")
+
+        if submitted:
+            if not (full_name and email and consent):
+                st.error("Please provide at least your name, email, and consent.")
+            else:
+                sid = str(uuid.uuid4())
+                now = datetime.datetime.utcnow().isoformat()
+
+                payload = {
+                    "full_name": full_name,
+                    "email": email,
+                    "phone": phone,
+                    "country_of_origin": country,
+                    "preferred_cities": preferred_cities,
+                    "program_interest": program,
+                    "current_qualification": qualification,
+                    "target_intake": intake,
+                    "budget_estimate": budget,
+                    "preferred_contact_method": contact_method,
+                    "consent": int(consent),
+                }
+
+                with st.spinner("Thinking about the best cities for you..."):
+                    suggestion = ask_deepseek_suggestions(payload)
+
+                # Save to DB
+                cur = conn.cursor()
+                cur.execute(
+                    """
+                    INSERT INTO students (
+                        id, full_name, email, phone, country_of_origin, preferred_cities,
+                        program_interest, current_qualification, target_intake, budget_estimate,
+                        preferred_contact_method, consent, created_at, suggestion_text
+                    )
+                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                    """,
+                    (
+                        sid,
+                        full_name,
+                        email,
+                        phone,
+                        country,
+                        preferred_cities,
+                        program,
+                        qualification,
+                        intake,
+                        budget,
+                        contact_method,
+                        int(consent),
+                        now,
+                        suggestion,
+                    ),
+                )
+                conn.commit()
+
+                st.success("Got it! Here’s what I recommend:")
+
+                st.markdown("#### Personalized suggestions")
+                st.write(suggestion)
+
+                st.markdown("---")
+                st.markdown("#### Book a quick mock interview")
+                st.markdown(
+                    f"<p class='small-label'>Pick a time that suits you — a counsellor will join you on the call.</p>",
+                    unsafe_allow_html=True,
+                )
+                st.markdown(
+                    f"[Open Calendly to schedule →]({CALENDLY_EMBED_LINK})",
+                    unsafe_allow_html=True,
+                )
+
+        st.markdown("</div>", unsafe_allow_html=True)
+
+
+# ----------------------
+# Admin Mode (compact)
+# ----------------------
+elif mode == "Admin":
+    with st.container():
+        st.markdown('<div class="card">', unsafe_allow_html=True)
+        st.markdown("### Admin — submissions overview")
+
+        pw = st.text_input("Admin password", type="password")
+        if pw != ADMIN_PASSWORD:
+            st.warning("Enter the correct admin password to view records.")
         else:
-            sid = str(uuid.uuid4())
-            now = datetime.datetime.utcnow().isoformat()
+            st.success("Admin access granted")
 
-            payload = {
-                "full_name": full_name,
-                "email": email,
-                "phone": phone,
-                "country_of_origin": country,
-                "preferred_cities": preferred_cities,
-                "program_interest": program,
-                "current_qualification": qualification,
-                "target_intake": intake,
-                "budget_estimate": budget,
-                "preferred_contact_method": contact_method,
-                "consent": int(consent),
-            }
-
-            with st.spinner("Generating personalized suggestions..."):
-                suggestion = ask_deepseek_suggestions(payload)
-
-            # Save to DB
             cur = conn.cursor()
             cur.execute(
                 """
-                INSERT INTO students (
-                    id, full_name, email, phone, country_of_origin, preferred_cities,
-                    program_interest, current_qualification, target_intake, budget_estimate,
-                    preferred_contact_method, consent, created_at, suggestion_text
-                )
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-                """,
-                (
-                    sid,
-                    full_name,
-                    email,
-                    phone,
-                    country,
-                    preferred_cities,
-                    program,
-                    qualification,
-                    intake,
-                    budget,
-                    contact_method,
-                    int(consent),
-                    now,
-                    suggestion,
-                ),
+                SELECT id, full_name, email, phone, preferred_cities,
+                       program_interest, created_at, suggestion_text
+                FROM students
+                ORDER BY created_at DESC
+                """
             )
-            conn.commit()
+            rows = cur.fetchall()
 
-            st.success("Thanks — your details were saved.")
-            st.subheader("Personalized suggestions")
-            st.write(suggestion)
+            if not rows:
+                st.info("No submissions yet.")
+            else:
+                # Show as short table first
+                st.caption("Recent submissions")
+                preview = [
+                    {
+                        "Name": r[1],
+                        "Email": r[2],
+                        "Program": r[5],
+                        "Cities": r[4],
+                        "Created": r[6],
+                    }
+                    for r in rows[:50]
+                ]
+                st.dataframe(preview, use_container_width=True, height=250)
 
-            st.markdown("---")
-            st.subheader("Schedule a mock interview")
-            st.markdown(
-                f"[Schedule mock interview →]({CALENDLY_EMBED_LINK})"
-            )
-            st.info(
-                "After booking in Calendly, our team will contact you with the next steps."
-            )
+                st.markdown("---")
+                st.caption("Tap a record for full details")
 
-# ----------------------
-# Admin Mode
-# ----------------------
-elif mode == "Admin":
-    st.header("Admin — view submissions")
-    pw = st.text_input("Enter admin password", type="password")
+                for r in rows:
+                    sid, name, email, phone, pref, prog, created_at, suggestion_text = r
+                    with st.expander(f"{name} — {prog} — {created_at}"):
+                        st.write("**Email:**", email)
+                        st.write("**Phone:**", phone)
+                        st.write("**Preferred cities:**", pref)
+                        st.write("**AI Suggestion:**")
+                        st.write(suggestion_text)
+                        st.code(sid, language="text")
 
-    if pw != ADMIN_PASSWORD:
-        st.warning("Enter correct admin password to view records.")
-    else:
-        st.success("Admin access granted")
-        st.subheader("Submissions (most recent first)")
-
-        cur = conn.cursor()
-        cur.execute(
-            """
-            SELECT id, full_name, email, phone, preferred_cities,
-                   program_interest, created_at, suggestion_text
-            FROM students
-            ORDER BY created_at DESC
-            """
-        )
-        rows = cur.fetchall()
-
-        if not rows:
-            st.info("No submissions yet.")
-        else:
-            for r in rows:
-                sid, name, email, phone, pref, prog, created_at, suggestion_text = r
-                with st.expander(f"{name} — {prog} — {created_at}"):
-                    st.write("Email:", email)
-                    st.write("Phone:", phone)
-                    st.write("Preferred cities:", pref)
-                    st.write("AI Suggestion:")
-                    st.write(suggestion_text)
-                    st.code(sid, language="text")
+        st.markdown("</div>", unsafe_allow_html=True)
