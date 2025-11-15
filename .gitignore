@@ -1,17 +1,23 @@
-# Python
+# Python cache
 __pycache__/
 *.pyc
+*.pyo
 
 # Virtual environment
 venv/
+
+# Environment variables
 .env
 
-# Local SQLite database
+# SQLite database
 students.db
 
-# OS / editor files
+# OS / Editor files
 .DS_Store
 Thumbs.db
 .vscode/
 .idea/
+
+# PyCharm / JetBrains
+*.iml
 
