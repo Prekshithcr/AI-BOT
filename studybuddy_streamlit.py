@@ -117,8 +117,8 @@ def ask_deepseek_suggestions(payload: Dict) -> str:
 # -------------------------------------
 # Streamlit UI Setup
 # -------------------------------------
-st.set_page_config(page_title="StudyBuddy (Gemini)", layout="centered")
-st.title("StudyBuddy — Student Intake (Google Gemini AI)")
+st.set_page_config(page_title="StudyBuddy", layout="centered")
+st.title("StudyBuddy")
 
 
 mode = st.sidebar.selectbox("Mode", ["Apply (Student)", "Admin"])
