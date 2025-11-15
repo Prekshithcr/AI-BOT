@@ -4,4 +4,4 @@ requests
 python-dotenv
 google-generativeai
 pandas
-fpdf2
+fpdf
