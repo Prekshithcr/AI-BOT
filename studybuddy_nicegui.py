@@ -560,4 +560,13 @@ def chat_page():
 
         ui.link('Back to Intake', '/').classes('mt-4 text-blue-300')
 
-ui.run(title='StudyBuddy (NiceGUI)')
+import os
+
+if __name__ in ('__main__', '__mp_main__'):
+    ui.run(
+        title='StudyBuddy (NiceGUI)',
+        reload=False,                      # no autoreload in production
+        host='0.0.0.0',                    # listen on all interfaces
+        port=int(os.getenv('PORT', 8080)), # Render provides $PORT
+    )
+
