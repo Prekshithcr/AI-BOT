@@ -1,19 +1,12 @@
 # studybuddy_streamlit.py
 """
-StudyBuddy — Simple Streamlit intake app using DeepSeek for suggestions.
+StudyBuddy — Streamlit intake app using Google Gemini API for study abroad suggestions.
 
-Environment variables expected (set in .env):
-  - DEEPSEEK_API_KEY        (required)
-  - DEEPSEEK_BASE_URL       (optional, default: https://api.deepseek.com/v1)
-  - DEEPSEEK_MODEL          (optional, default: deepseek-chat)
-  - STUDYBUDDY_ADMIN_PW     (optional, default: adminpass)
-  - CALENDLY_EMBED_LINK     (optional; default demo link)
-
-The app:
-  - Shows a student intake form
-  - Calls DeepSeek to generate 3 city suggestions + next step
-  - Saves everything into a local SQLite DB (students.db)
-  - Provides a simple admin view of all submissions
+Environment variables expected:
+  - GEMINI_API_KEY
+  - GEMINI_MODEL                (optional, default: "gemini-pro")
+  - STUDYBUDDY_ADMIN_PW         (optional, default: "adminpass")
+  - CALENDLY_EMBED_LINK         (optional, default test link)
 """
 
 import os
@@ -24,29 +17,34 @@ import requests
 import streamlit as st
 from typing import Dict
 from dotenv import load_dotenv
+import google.generativeai as genai
 
-# ----------------------
-# Load environment
-# ----------------------
-load_dotenv()  # reads .env in the same folder
+# -------------------------------------
+# Load environment variables
+# -------------------------------------
+load_dotenv()
 
-DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
-DEEPSEEK_BASE_URL = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com/v1")
-DEEPSEEK_MODEL = os.getenv("DEEPSEEK_MODEL", "deepseek-chat")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-pro")
 ADMIN_PASSWORD = os.getenv("STUDYBUDDY_ADMIN_PW", "adminpass")
 CALENDLY_EMBED_LINK = os.getenv(
     "CALENDLY_EMBED_LINK",
     "https://calendly.com/your-organization/30min"
 )
 
-# SQLite DB path (local file)
+# Configure Gemini
+if GEMINI_API_KEY:
+    genai.configure(api_key=GEMINI_API_KEY)
+
+# SQLite DB path
 DB_PATH = "students.db"
 
-# ----------------------
-# Database helpers
-# ----------------------
+
+# -------------------------------------
+# Database Setup
+# -------------------------------------
 def init_db(db_path: str = DB_PATH):
-    """Create the students table if it does not exist."""
+    """Initialize SQLite database and create table if not exists."""
     conn = sqlite3.connect(db_path, check_same_thread=False)
     cur = conn.cursor()
     cur.execute(
@@ -72,20 +70,22 @@ def init_db(db_path: str = DB_PATH):
     conn.commit()
     return conn
 
+
 conn = init_db()
 
-# ----------------------
-# DeepSeek interaction
-# ----------------------
+
+# -------------------------------------
+# Gemini AI Suggestion Function
+# -------------------------------------
 def ask_deepseek_suggestions(payload: Dict) -> str:
     """
-    Call DeepSeek's chat completions endpoint and return the assistant's text.
-    Returns a friendly error message if something goes wrong.
+    Generate city suggestions using Google Gemini.
+    (The function name is kept same for compatibility)
     """
-    if not DEEPSEEK_API_KEY:
-        return "DEEPSEEK_API_KEY not set. Add it to your .env file."
 
-    # Compose prompt for the model
+    if not GEMINI_API_KEY:
+        return "GEMINI_API_KEY not set. Add it to your .env file."
+
     prompt = (
         f"You are StudyBuddy, a concise professional education consultant.\n"
         f"Student info:\n"
@@ -94,66 +94,41 @@ def ask_deepseek_suggestions(payload: Dict) -> str:
         f"- Program: {payload.get('program_interest')}\n"
         f"- Country: {payload.get('country_of_origin')}\n"
         f"- Qualification: {payload.get('current_qualification')}\n\n"
-        "Suggest exactly 3 study cities (City — one-line reason each) "
-        "and one clear next step (one sentence). Keep it concise and actionable."
+        "Suggest exactly 3 study cities (City — one-line reason each) and "
+        "one clear next step (one sentence). Be short and actionable."
     )
 
-    url = f"{DEEPSEEK_BASE_URL}/chat/completions"
-    headers = {
-        "Authorization": f"Bearer {DEEPSEEK_API_KEY}",
-        "Content-Type": "application/json",
-    }
-    body = {
-        "model": DEEPSEEK_MODEL,
-        "messages": [
-            {
-                "role": "system",
-                "content": "You are a concise professional education consultant named StudyBuddy."
-            },
-            {"role": "user", "content": prompt},
-        ],
-        "max_tokens": 350,
-        "temperature": 0.2,
-    }
-
     try:
-        resp = requests.post(url, headers=headers, json=body, timeout=30)
-        resp.raise_for_status()
-        j = resp.json()
+        model = genai.GenerativeModel(GEMINI_MODEL)
+        response = model.generate_content(prompt)
+        return response.text.strip()
 
-        # DeepSeek uses OpenAI-compatible format
-        if "choices" in j and len(j["choices"]) > 0:
-            choice = j["choices"][0]
-            if "message" in choice and isinstance(choice["message"], dict):
-                content = choice["message"].get("content", "")
-                return content.strip()
-            if "text" in choice:  # fallback if text field used
-                return choice["text"].strip()
-
-        return f"(Unexpected DeepSeek response format) {j}"
-
-    except requests.exceptions.HTTPError as he:
-        # Try to decode error body
-        try:
-            err_json = resp.json()
-            return f"DeepSeek API HTTP error: {err_json}"
-        except Exception:
-            return f"DeepSeek API HTTP error: {he}"
     except Exception as e:
-        return f"Error contacting DeepSeek API: {e}"
+        canned = (
+            "City suggestions (fallback):\n"
+            "1. Toronto — strong CS and business programs.\n"
+            "2. Melbourne — high-quality universities and research.\n"
+            "3. Berlin — affordable education and tech exposure.\n\n"
+            "Next step: Schedule a mock interview using Calendly."
+        )
+        return f"(Gemini error — using fallback)\n\n{canned}"
 
-# ----------------------
-# Streamlit UI
-# ----------------------
-st.set_page_config(page_title="StudyBuddy (DeepSeek)", layout="centered")
-st.title("StudyBuddy — Student Intake Assistant (DeepSeek)")
+
+# -------------------------------------
+# Streamlit UI Setup
+# -------------------------------------
+st.set_page_config(page_title="StudyBuddy (Gemini)", layout="centered")
+st.title("StudyBuddy — Student Intake (Google Gemini AI)")
+
 
 mode = st.sidebar.selectbox("Mode", ["Apply (Student)", "Admin"])
 
-# ----------------------
-# Student Apply Mode
-# ----------------------
+
+# -------------------------------------
+# Student Intake Mode
+# -------------------------------------
 if mode == "Apply (Student)":
+
     st.header("Quick intake form")
 
     with st.form("student_form"):
@@ -161,28 +136,18 @@ if mode == "Apply (Student)":
         email = st.text_input("Email")
         phone = st.text_input("Phone (optional)")
         country = st.text_input("Country of origin")
-        preferred_cities = st.text_input(
-            "Preferred city or leave blank for suggestions (comma separated)"
-        )
-        program = st.selectbox(
-            "Program interest", ["Masters", "Bachelors", "PhD", "Language", "Other"]
-        )
-        qualification = st.text_input(
-            "Current qualification (e.g., B.Tech, GPA/Percentage)"
-        )
+        preferred_cities = st.text_input("Preferred city or leave blank for suggestions")
+        program = st.selectbox("Program interest", ["Masters", "Bachelors", "PhD", "Language", "Other"])
+        qualification = st.text_input("Current qualification (e.g. B.Tech, GPA/Percentage)")
         intake = st.text_input("Target intake (e.g., 2026-09)")
         budget = st.text_input("Budget estimate (approx)")
-        contact_method = st.selectbox(
-            "Preferred contact", ["Email", "Phone / WhatsApp"]
-        )
-        consent = st.checkbox(
-            "I consent to sharing my info with the consultancy"
-        )
+        contact_method = st.selectbox("Preferred contact", ["Email", "Phone / WhatsApp"])
+        consent = st.checkbox("I consent to sharing my info with the consultancy")
         submitted = st.form_submit_button("Submit")
 
     if submitted:
         if not (full_name and email and consent):
-            st.error("Please provide your name, email, and consent to proceed.")
+            st.error("Please provide your name, email and consent.")
         else:
             sid = str(uuid.uuid4())
             now = datetime.datetime.utcnow().isoformat()
@@ -204,7 +169,6 @@ if mode == "Apply (Student)":
             with st.spinner("Generating personalized suggestions..."):
                 suggestion = ask_deepseek_suggestions(payload)
 
-            # Save to DB
             cur = conn.cursor()
             cur.execute(
                 """
@@ -230,41 +194,38 @@ if mode == "Apply (Student)":
                     int(consent),
                     now,
                     suggestion,
-                ),
+                )
             )
             conn.commit()
 
-            st.success("Thanks — your details were saved.")
+            st.success("Your details were saved!")
             st.subheader("Personalized suggestions")
             st.write(suggestion)
 
             st.markdown("---")
             st.subheader("Schedule a mock interview")
-            st.markdown(
-                f"[Schedule mock interview →]({CALENDLY_EMBED_LINK})"
-            )
-            st.info(
-                "After booking in Calendly, our team will contact you with the next steps."
-            )
+            st.markdown(f"[Click here to schedule →]({CALENDLY_EMBED_LINK})")
 
-# ----------------------
+
+# -------------------------------------
 # Admin Mode
-# ----------------------
+# -------------------------------------
 elif mode == "Admin":
-    st.header("Admin — view submissions")
+
+    st.header("Admin — View Submissions")
+
     pw = st.text_input("Enter admin password", type="password")
 
     if pw != ADMIN_PASSWORD:
-        st.warning("Enter correct admin password to view records.")
+        st.warning("Incorrect password.")
     else:
         st.success("Admin access granted")
-        st.subheader("Submissions (most recent first)")
 
         cur = conn.cursor()
         cur.execute(
             """
-            SELECT id, full_name, email, phone, preferred_cities,
-                   program_interest, created_at, suggestion_text
+            SELECT id, full_name, email, phone, preferred_cities, program_interest,
+                   created_at, suggestion_text
             FROM students
             ORDER BY created_at DESC
             """
@@ -275,14 +236,12 @@ elif mode == "Admin":
             st.info("No submissions yet.")
         else:
             for r in rows:
-                sid, name, email, phone, pref, prog, created_at, suggestion_text = r
+                sid, name, email, phone, pref, prog, created_at, suggestion = r
                 with st.expander(f"{name} — {prog} — {created_at}"):
                     st.write("Email:", email)
                     st.write("Phone:", phone)
                     st.write("Preferred cities:", pref)
                     st.write("AI Suggestion:")
-                    st.write(suggestion_text)
+                    st.write(suggestion)
                     st.code(sid, language="text")
-
-
 
