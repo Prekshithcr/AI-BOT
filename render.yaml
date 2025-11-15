@@ -1,0 +1,35 @@
+services:
+  - type: web
+    name: studybuddy-nicegui
+    env: python
+    plan: free
+    region: frankfurt   # or oregon / singapore etc.
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "python studybuddy_nicegui.py"
+    autoDeploy: true
+
+    envVars:
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_MODEL
+        value: gemini-2.5-flash
+      - key: STUDYBUDDY_ADMIN_PW
+        sync: false
+      - key: COUNSELOR_PASSWORD
+        sync: false
+      - key: EMAIL_ENABLED
+        value: "false"          # or "true" if you set SMTP vars below
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
+      - key: CALENDLY_EMBED_LINK
+        sync: false
+      - key: DB_PATH
+        value: "students.db"
