@@ -572,4 +572,4 @@ elif mode == "Chatbot":
             answer = f"Error from Gemini: {e}"
 
         st.session_state.chat_history.append({"role": "assistant", "content": answer})
-        st.experimental_rerun()
+        st.rerun()
