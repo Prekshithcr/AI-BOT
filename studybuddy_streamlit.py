@@ -27,7 +27,6 @@ from io import BytesIO
 from typing import Dict, List
 
 import pandas as pd
-import requests
 import streamlit as st
 from dotenv import load_dotenv
 from fpdf import FPDF
@@ -225,7 +224,7 @@ def generate_pdf_report(row: Dict) -> bytes:
 
 
 # -------------------------------------
-# Gemini AI Suggestion Function
+# Gemini AI Suggestion Function (intake)
 # -------------------------------------
 def ask_deepseek_suggestions(payload: Dict, pre_answers: Dict, score: int) -> str:
     """
@@ -274,302 +273,470 @@ def ask_deepseek_suggestions(payload: Dict, pre_answers: Dict, score: int) -> st
 
 
 # -------------------------------------
-# Streamlit UI Setup
+# Gemini Chatbot Helper
 # -------------------------------------
-st.set_page_config(page_title="StudyBuddy (Gemini)", layout="wide")
-st.title("StudyBuddy — Study Abroad Assistant (Gemini AI)")
+def call_gemini_chat(history: List[Dict[str, str]]) -> str:
+    """
+    history: list of {"role": "user"|"assistant", "content": str}
+    Returns StudyBuddy's reply.
+    """
+    if not GEMINI_API_KEY:
+        return "⚠️ GEMINI_API_KEY not set. Add it to your .env file."
 
-mode = st.sidebar.selectbox("Mode", ["Apply (Student)", "Dashboard", "Admin", "Counselor", "Chatbot"])
+    system_prompt = (
+        "You are StudyBuddy, a professional, friendly and concise study-abroad advisor. "
+        "You help students with university selection, country comparison, exam planning, "
+        "SOP/LOI tips, visa awareness, and realistic guidance about budgets and timelines. "
+        "Avoid overpromising. Be specific, practical, and structured."
+    )
 
+    model = genai.GenerativeModel(GEMINI_MODEL)
+
+    gemini_history = [{"role": "user", "parts": [system_prompt]}]
+    for msg in history:
+        if msg["role"] == "user":
+            gemini_history.append({"role": "user", "parts": [msg["content"]]})
+        else:
+            gemini_history.append({"role": "model", "parts": [msg["content"]]})
+
+    try:
+        response = model.generate_content(gemini_history)
+        return response.text.strip()
+    except Exception as e:
+        return f"⚠️ Error from Gemini: {e}"
+
+
+# -------------------------------------
+# Streamlit UI Setup + Custom Styling
+# -------------------------------------
+st.set_page_config(
+    page_title="StudyBuddy (Gemini)",
+    page_icon="🎓",
+    layout="wide",
+)
+
+CUSTOM_CSS = """
+<style>
+.stApp {
+    background: radial-gradient(circle at top left, #1e293b 0, #020617 40%, #000 100%);
+    color: #e5e7eb;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+/* Cards + containers */
+.block-card {
+    background: rgba(15, 23, 42, 0.9);
+    border-radius: 22px;
+    padding: 22px 24px;
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    box-shadow: 0 18px 40px rgba(15, 23, 42, 0.7);
+}
+
+/* Form fields */
+.stTextInput > div > div > input,
+.stTextArea textarea,
+.stSelectbox > div > div > select {
+    background-color: rgba(15, 23, 42, 0.95) !important;
+    border-radius: 12px !important;
+    border: 1px solid rgba(148, 163, 184, 0.7) !important;
+    color: #e5e7eb !important;
+}
+
+/* Buttons */
+.stButton button {
+    border-radius: 999px;
+    padding: 0.4rem 1.2rem;
+    border: none;
+    font-weight: 600;
+}
+
+/* Chat bubbles */
+.chat-bubble-user {
+    background: linear-gradient(135deg, #1e40af, #22c55e);
+    color: white;
+    padding: 10px 14px;
+    border-radius: 16px 16px 2px 16px;
+    max-width: 100%;
+    font-size: 0.95rem;
+}
+.chat-bubble-assistant {
+    background: rgba(15, 23, 42, 0.95);
+    border: 1px solid rgba(148, 163, 184, 0.5);
+    padding: 10px 14px;
+    border-radius: 16px 16px 16px 2px;
+    max-width: 100%;
+    font-size: 0.95rem;
+}
+
+/* Metrics */
+.css-1ht1j8u, .css-12w0qpk {  /* metric label/value may change with versions */
+    color: #e5e7eb !important;
+}
+</style>
+"""
+st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
+
+# Hero header
+st.markdown(
+    """
+    <div style="
+        padding: 18px 22px;
+        border-radius: 20px;
+        background: linear-gradient(120deg, #1d4ed8, #22c55e, #4f46e5);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+        box-shadow: 0 20px 50px rgba(15,23,42,0.8);
+    ">
+      <div>
+        <div style="font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.18em; color: rgba(226,232,240,0.85); margin-bottom: 4px;">
+          AI-POWERED STUDY ABROAD WORKSPACE
+        </div>
+        <div style="font-size: 1.6rem; font-weight: 700; color: #f9fafb;">
+          StudyBuddy — Study Abroad Assistant (Gemini)
+        </div>
+        <div style="font-size: 0.9rem; color: rgba(226,232,240,0.92); margin-top: 4px;">
+          Capture leads, pre-score students, chat like a professional counselor, and export reports in one place.
+        </div>
+      </div>
+      <div style="text-align: right; font-size: 0.8rem; color: rgba(226,232,240,0.9);">
+        <div style="
+          display: inline-flex;
+          align-items: center;
+          padding: 4px 12px;
+          border-radius: 999px;
+          background: rgba(15,23,42,0.35);
+          border: 1px solid rgba(191, 219, 254, 0.7);
+        ">
+          ⚡ Powered by Gemini
+        </div>
+      </div>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
+# Sidebar mode selection
+mode = st.sidebar.selectbox(
+    "Mode",
+    ["Apply (Student)", "Dashboard", "Admin", "Counselor", "Chatbot"]
+)
 
 # -------------------------------------
 # Student Intake Mode
 # -------------------------------------
 if mode == "Apply (Student)":
-    st.header("Quick intake + pre-interview questions")
+    with st.container():
+        st.markdown('<div class="block-card">', unsafe_allow_html=True)
+        st.subheader("Quick intake + pre-interview questions")
 
-    col1, col2 = st.columns(2)
-    with st.form("student_form"):
-        with col1:
-            full_name = st.text_input("Full name")
-            email = st.text_input("Email")
-            phone = st.text_input("Phone (optional)")
-            country = st.text_input("Country of origin")
-            preferred_cities = st.text_input("Preferred city or leave blank for suggestions")
-            program = st.selectbox("Program interest", ["Masters", "Bachelors", "PhD", "Language", "Other"])
-            qualification = st.text_input("Current qualification (e.g. B.Tech, GPA/Percentage)")
-        with col2:
-            intake = st.text_input("Target intake (e.g., 2026-09)")
-            budget = st.text_input("Budget estimate (approx, in USD)")
-            contact_method = st.selectbox("Preferred contact", ["Email", "Phone / WhatsApp"])
-            motivation = st.text_area("Why do you want to study abroad?")
-            ielts_score = st.text_input("IELTS/TOEFL score (if any)")
-            work_experience_years = st.text_input("Work experience (years, can be 0)")
-        consent = st.checkbox("I consent to sharing my info with the consultancy")
-        submitted = st.form_submit_button("Submit")
+        col1, col2 = st.columns(2)
+        with st.form("student_form"):
+            with col1:
+                full_name = st.text_input("Full name")
+                email = st.text_input("Email")
+                phone = st.text_input("Phone (optional)")
+                country = st.text_input("Country of origin")
+                preferred_cities = st.text_input("Preferred city or leave blank for suggestions")
+                program = st.selectbox("Program interest", ["Masters", "Bachelors", "PhD", "Language", "Other"])
+                qualification = st.text_input("Current qualification (e.g. B.Tech, GPA/Percentage)")
+            with col2:
+                intake = st.text_input("Target intake (e.g., 2026-09)")
+                budget = st.text_input("Budget estimate (approx, in USD)")
+                contact_method = st.selectbox("Preferred contact", ["Email", "Phone / WhatsApp"])
+                motivation = st.text_area("Why do you want to study abroad?")
+                ielts_score = st.text_input("IELTS/TOEFL score (if any)")
+                work_experience_years = st.text_input("Work experience (years, can be 0)")
+            consent = st.checkbox("I consent to sharing my info with the consultancy")
+            submitted = st.form_submit_button("Submit")
 
-    if submitted:
-        if not (full_name and email and consent):
-            st.error("Please provide your name, email and consent.")
-        else:
-            sid = str(uuid.uuid4())
-            now = datetime.datetime.utcnow().isoformat()
+        if submitted:
+            if not (full_name and email and consent):
+                st.error("Please provide your name, email and consent.")
+            else:
+                sid = str(uuid.uuid4())
+                now = datetime.datetime.utcnow().isoformat()
 
-            payload = {
-                "full_name": full_name,
-                "email": email,
-                "phone": phone,
-                "country_of_origin": country,
-                "preferred_cities": preferred_cities,
-                "program_interest": program,
-                "current_qualification": qualification,
-                "target_intake": intake,
-                "budget_estimate": budget,
-                "preferred_contact_method": contact_method,
-                "consent": int(consent),
-            }
+                payload = {
+                    "full_name": full_name,
+                    "email": email,
+                    "phone": phone,
+                    "country_of_origin": country,
+                    "preferred_cities": preferred_cities,
+                    "program_interest": program,
+                    "current_qualification": qualification,
+                    "target_intake": intake,
+                    "budget_estimate": budget,
+                    "preferred_contact_method": contact_method,
+                    "consent": int(consent),
+                }
 
-            pre_answers = {
-                "motivation": motivation,
-                "ielts_score": ielts_score,
-                "work_experience_years": work_experience_years,
-                "budget_estimate": budget,
-            }
+                pre_answers = {
+                    "motivation": motivation,
+                    "ielts_score": ielts_score,
+                    "work_experience_years": work_experience_years,
+                    "budget_estimate": budget,
+                }
 
-            score = calculate_pre_interview_score(pre_answers)
+                score = calculate_pre_interview_score(pre_answers)
 
-            with st.spinner(f"Generating personalized suggestions... (Score: {score})"):
-                suggestion = ask_deepseek_suggestions(payload, pre_answers, score)
+                with st.spinner(f"Generating personalized suggestions... (Score: {score})"):
+                    suggestion = ask_deepseek_suggestions(payload, pre_answers, score)
 
-            # Save to DB
-            cur = conn.cursor()
-            cur.execute(
-                """
-                INSERT INTO students (
-                    id, full_name, email, phone, country_of_origin, preferred_cities,
-                    program_interest, current_qualification, target_intake, budget_estimate,
-                    preferred_contact_method, consent, pre_interview_answers, pre_interview_score,
-                    counselor, status, created_at, suggestion_text
+                # Save to DB
+                cur = conn.cursor()
+                cur.execute(
+                    """
+                    INSERT INTO students (
+                        id, full_name, email, phone, country_of_origin, preferred_cities,
+                        program_interest, current_qualification, target_intake, budget_estimate,
+                        preferred_contact_method, consent, pre_interview_answers, pre_interview_score,
+                        counselor, status, created_at, suggestion_text
+                    )
+                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                    """,
+                    (
+                        sid,
+                        full_name,
+                        email,
+                        phone,
+                        country,
+                        preferred_cities,
+                        program,
+                        qualification,
+                        intake,
+                        budget,
+                        contact_method,
+                        int(consent),
+                        str(pre_answers),
+                        score,
+                        None,
+                        "New",
+                        now,
+                        suggestion,
+                    )
                 )
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-                """,
-                (
-                    sid,
-                    full_name,
+                conn.commit()
+
+                # Email notification (optional)
+                status_msg = send_email_notification(
                     email,
-                    phone,
-                    country,
-                    preferred_cities,
-                    program,
-                    qualification,
-                    intake,
-                    budget,
-                    contact_method,
-                    int(consent),
-                    str(pre_answers),
-                    score,
-                    None,
-                    "New",
-                    now,
-                    suggestion,
+                    "Your StudyBuddy suggestions",
+                    f"Hi {full_name},\n\nHere are your suggestions:\n\n{suggestion}\n\nThank you,\nStudyBuddy"
                 )
-            )
-            conn.commit()
+                if EMAIL_ENABLED:
+                    st.info(status_msg)
 
-            # Email notification (optional)
-            status_msg = send_email_notification(
-                email,
-                "Your StudyBuddy suggestions",
-                f"Hi {full_name},\n\nHere are your suggestions:\n\n{suggestion}\n\nThank you,\nStudyBuddy"
-            )
-            if EMAIL_ENABLED:
-                st.info(status_msg)
+                st.success(f"Your details were saved! Pre-interview score: {score} ({classify_score(score)})")
+                st.subheader("Personalized suggestions")
+                st.write(suggestion)
 
-            st.success(f"Your details were saved! Pre-interview score: {score} ({classify_score(score)})")
-            st.subheader("Personalized suggestions")
-            st.write(suggestion)
+                st.markdown("---")
+                st.subheader("Schedule a mock interview")
+                st.markdown(f"[Click here to schedule →]({CALENDLY_EMBED_LINK})")
 
-            st.markdown("---")
-            st.subheader("Schedule a mock interview")
-            st.markdown(f"[Click here to schedule →]({CALENDLY_EMBED_LINK})")
+        st.markdown('</div>', unsafe_allow_html=True)
 
 
 # -------------------------------------
 # Dashboard with analytics
 # -------------------------------------
 elif mode == "Dashboard":
-    st.header("Dashboard — Analytics")
+    with st.container():
+        st.markdown('<div class="block-card">', unsafe_allow_html=True)
+        st.subheader("Dashboard — Analytics")
 
-    df = pd.read_sql_query("SELECT * FROM students", conn)
-    if df.empty:
-        st.info("No data yet.")
-    else:
-        col1, col2, col3 = st.columns(3)
-        col1.metric("Total students", len(df))
-        col2.metric("Avg pre-interview score", f"{df['pre_interview_score'].fillna(0).mean():.1f}")
-        col3.metric("High-score students (>=75)", (df["pre_interview_score"] >= 75).sum())
+        df = pd.read_sql_query("SELECT * FROM students", conn)
+        if df.empty:
+            st.info("No data yet.")
+        else:
+            col1, col2, col3 = st.columns(3)
+            col1.metric("Total students", len(df))
+            col2.metric("Avg pre-interview score", f"{df['pre_interview_score'].fillna(0).mean():.1f}")
+            col3.metric("High-score students (>=75)", (df["pre_interview_score"] >= 75).sum())
 
-        st.subheader("Program distribution")
-        prog_counts = df["program_interest"].value_counts()
-        st.bar_chart(prog_counts)
+            st.markdown("---")
+            st.subheader("Program distribution")
+            prog_counts = df["program_interest"].value_counts()
+            st.bar_chart(prog_counts)
 
-        st.subheader("Country distribution")
-        country_counts = df["country_of_origin"].value_counts()
-        st.bar_chart(country_counts)
+            st.subheader("Country distribution")
+            country_counts = df["country_of_origin"].value_counts()
+            st.bar_chart(country_counts)
 
-        st.subheader("Score distribution")
-        st.bar_chart(df["pre_interview_score"].fillna(0))
+            st.subheader("Score distribution")
+            st.bar_chart(df["pre_interview_score"].fillna(0))
+
+        st.markdown('</div>', unsafe_allow_html=True)
 
 
 # -------------------------------------
 # Admin Mode
 # -------------------------------------
 elif mode == "Admin":
-    st.header("Admin — View & Manage Submissions")
+    with st.container():
+        st.markdown('<div class="block-card">', unsafe_allow_html=True)
+        st.subheader("Admin — View & Manage Submissions")
 
-    pw = st.text_input("Enter admin password", type="password")
-    if pw != ADMIN_PASSWORD:
-        st.warning("Incorrect password.")
-    else:
-        st.success("Admin access granted")
-
-        df = pd.read_sql_query("SELECT * FROM students ORDER BY created_at DESC", conn)
-        if df.empty:
-            st.info("No submissions yet.")
+        pw = st.text_input("Enter admin password", type="password")
+        if pw != ADMIN_PASSWORD:
+            st.warning("Incorrect password.")
         else:
-            # CSV export
-            csv_data = df.to_csv(index=False).encode("utf-8")
-            st.download_button(
-                "Download all as CSV",
-                data=csv_data,
-                file_name="students_export.csv",
-                mime="text/csv",
-            )
+            st.success("Admin access granted")
 
-            for _, row in df.iterrows():
-                sid = row["id"]
-                name = row["full_name"]
-                prog = row["program_interest"]
-                created = row["created_at"]
-                with st.expander(f"{name} — {prog} — {created}"):
-                    st.write("Email:", row["email"])
-                    st.write("Phone:", row["phone"])
-                    st.write("Country:", row["country_of_origin"])
-                    st.write("Preferred cities:", row["preferred_cities"])
-                    st.write("Program:", row["program_interest"])
-                    st.write("Qualification:", row["current_qualification"])
-                    st.write("Score:", f"{row['pre_interview_score']} ({classify_score(row['pre_interview_score'] or 0)})")
-                    st.write("Counselor:", row["counselor"])
-                    st.write("Status:", row["status"])
-                    st.write("AI Suggestion:")
-                    st.write(row["suggestion_text"])
+            df = pd.read_sql_query("SELECT * FROM students ORDER BY created_at DESC", conn)
+            if df.empty:
+                st.info("No submissions yet.")
+            else:
+                # CSV export
+                csv_data = df.to_csv(index=False).encode("utf-8")
+                st.download_button(
+                    "Download all as CSV",
+                    data=csv_data,
+                    file_name="students_export.csv",
+                    mime="text/csv",
+                )
 
-                    # Update counselor and status
-                    new_counselor = st.selectbox(
-                        "Assign counselor",
-                        options=[""] + COUNSELORS,
-                        index=([""] + COUNSELORS).index(row["counselor"]) if row["counselor"] in COUNSELORS else 0,
-                        key=f"couns_{sid}",
-                    )
-                    new_status = st.selectbox(
-                        "Status",
-                        options=["New", "In Progress", "Closed"],
-                        index=["New", "In Progress", "Closed"].index(row["status"] or "New"),
-                        key=f"status_{sid}",
-                    )
-                    if st.button("Save changes", key=f"save_{sid}"):
-                        cur = conn.cursor()
-                        cur.execute(
-                            "UPDATE students SET counselor = ?, status = ? WHERE id = ?",
-                            (new_counselor or None, new_status, sid),
+                for _, row in df.iterrows():
+                    sid = row["id"]
+                    name = row["full_name"]
+                    prog = row["program_interest"]
+                    created = row["created_at"]
+                    with st.expander(f"{name} — {prog} — {created}"):
+                        st.write("Email:", row["email"])
+                        st.write("Phone:", row["phone"])
+                        st.write("Country:", row["country_of_origin"])
+                        st.write("Preferred cities:", row["preferred_cities"])
+                        st.write("Program:", row["program_interest"])
+                        st.write("Qualification:", row["current_qualification"])
+                        st.write("Score:", f"{row['pre_interview_score']} ({classify_score(row['pre_interview_score'] or 0)})")
+                        st.write("Counselor:", row["counselor"])
+                        st.write("Status:", row["status"])
+                        st.write("AI Suggestion:")
+                        st.write(row["suggestion_text"])
+
+                        # Update counselor and status
+                        new_counselor = st.selectbox(
+                            "Assign counselor",
+                            options=[""] + COUNSELORS,
+                            index=([""] + COUNSELORS).index(row["counselor"]) if row["counselor"] in COUNSELORS else 0,
+                            key=f"couns_{sid}",
                         )
-                        conn.commit()
-                        st.success("Updated.")
-
-                    # PDF download
-                    if st.button("Generate PDF report", key=f"pdf_{sid}"):
-                        pdf_bytes = generate_pdf_report(row.to_dict())
-                        st.download_button(
-                            "Download PDF",
-                            data=pdf_bytes,
-                            file_name=f"studybuddy_{name}_{sid}.pdf",
-                            mime="application/pdf",
-                            key=f"pdf_dl_{sid}",
+                        new_status = st.selectbox(
+                            "Status",
+                            options=["New", "In Progress", "Closed"],
+                            index=["New", "In Progress", "Closed"].index(row["status"] or "New"),
+                            key=f"status_{sid}",
                         )
+                        if st.button("Save changes", key=f"save_{sid}"):
+                            cur = conn.cursor()
+                            cur.execute(
+                                "UPDATE students SET counselor = ?, status = ? WHERE id = ?",
+                                (new_counselor or None, new_status, sid),
+                            )
+                            conn.commit()
+                            st.success("Updated.")
+
+                        # PDF download
+                        if st.button("Generate PDF report", key=f"pdf_{sid}"):
+                            pdf_bytes = generate_pdf_report(row.to_dict())
+                            st.download_button(
+                                "Download PDF",
+                                data=pdf_bytes,
+                                file_name=f"studybuddy_{name}_{sid}.pdf",
+                                mime="application/pdf",
+                                key=f"pdf_dl_{sid}",
+                            )
+
+        st.markdown('</div>', unsafe_allow_html=True)
 
 
 # -------------------------------------
 # Counselor Mode
 # -------------------------------------
 elif mode == "Counselor":
-    st.header("Counselor — My Students")
+    with st.container():
+        st.markdown('<div class="block-card">', unsafe_allow_html=True)
+        st.subheader("Counselor — My Students")
 
-    counselor_name = st.selectbox("Choose your name", COUNSELORS)
-    pw = st.text_input("Counselor password", type="password")
+        counselor_name = st.selectbox("Choose your name", COUNSELORS)
+        pw = st.text_input("Counselor password", type="password")
 
-    if pw != COUNSELOR_PASSWORD:
-        st.warning("Enter correct counselor password.")
-    else:
-        st.success(f"Welcome, {counselor_name}!")
-        df = pd.read_sql_query(
-            "SELECT * FROM students WHERE counselor = ? ORDER BY created_at DESC",
-            conn,
-            params=(counselor_name,),
-        )
-        if df.empty:
-            st.info("No students assigned to you yet.")
+        if pw != COUNSELOR_PASSWORD:
+            st.warning("Enter correct counselor password.")
         else:
-            for _, row in df.iterrows():
-                sid = row["id"]
-                name = row["full_name"]
-                score = row["pre_interview_score"]
-                created = row["created_at"]
-                with st.expander(f"{name} — Score: {score} — {created}"):
-                    st.write("Email:", row["email"])
-                    st.write("Phone:", row["phone"])
-                    st.write("Country:", row["country_of_origin"])
-                    st.write("Preferred cities:", row["preferred_cities"])
-                    st.write("Program:", row["program_interest"])
-                    st.write("Qualification:", row["current_qualification"])
-                    st.write("AI Suggestion:")
-                    st.write(row["suggestion_text"])
-                    st.code(sid, language="text")
+            st.success(f"Welcome, {counselor_name}!")
+            df = pd.read_sql_query(
+                "SELECT * FROM students WHERE counselor = ? ORDER BY created_at DESC",
+                conn,
+                params=(counselor_name,),
+            )
+            if df.empty:
+                st.info("No students assigned to you yet.")
+            else:
+                for _, row in df.iterrows():
+                    sid = row["id"]
+                    name = row["full_name"]
+                    score = row["pre_interview_score"]
+                    created = row["created_at"]
+                    with st.expander(f"{name} — Score: {score} — {created}"):
+                        st.write("Email:", row["email"])
+                        st.write("Phone:", row["phone"])
+                        st.write("Country:", row["country_of_origin"])
+                        st.write("Preferred cities:", row["preferred_cities"])
+                        st.write("Program:", row["program_interest"])
+                        st.write("Qualification:", row["current_qualification"])
+                        st.write("AI Suggestion:")
+                        st.write(row["suggestion_text"])
+                        st.code(sid, language="text")
+
+        st.markdown('</div>', unsafe_allow_html=True)
 
 
 # -------------------------------------
-# Chatbot Mode
+# Chatbot Mode (new professional UI)
 # -------------------------------------
 elif mode == "Chatbot":
-    st.header("StudyBuddy Chatbot (Gemini)")
+    with st.container():
+        st.markdown('<div class="block-card">', unsafe_allow_html=True)
+        st.subheader("StudyBuddy Chatbot (Gemini)")
 
-    if "chat_history" not in st.session_state:
-        st.session_state.chat_history = []
+        if "chat_history" not in st.session_state:
+            st.session_state.chat_history = []
 
-    # Show chat
-    for msg in st.session_state.chat_history:
-        role = msg["role"]
-        if role == "user":
-            st.markdown(f"**You:** {msg['content']}")
-        else:
-            st.markdown(f"**StudyBuddy:** {msg['content']}")
+        col1, col2 = st.columns([1, 1])
+        with col1:
+            st.markdown(
+                "Use this for **counselor-grade answers** on countries, universities, SOPs, timelines, and visas."
+            )
+        with col2:
+            if st.button("🧹 New conversation", use_container_width=True):
+                st.session_state.chat_history = []
 
-    user_input = st.text_input("Ask StudyBuddy anything about studying abroad:")
-    if st.button("Send") and user_input.strip():
-        st.session_state.chat_history.append({"role": "user", "content": user_input})
+        st.markdown("---")
 
-        # Build conversation for Gemini
-        conv_text = "You are StudyBuddy, an expert study abroad consultant.\n\n"
+        # Display history
         for msg in st.session_state.chat_history:
-            prefix = "User" if msg["role"] == "user" else "StudyBuddy"
-            conv_text += f"{prefix}: {msg['content']}\n"
-        conv_text += "StudyBuddy:"
+            with st.chat_message(msg["role"]):
+                bubble_class = "chat-bubble-user" if msg["role"] == "user" else "chat-bubble-assistant"
+                st.markdown(f'<div class="{bubble_class}">{msg["content"]}</div>', unsafe_allow_html=True)
 
-        try:
-            model = genai.GenerativeModel(GEMINI_MODEL)
-            response = model.generate_content(conv_text)
-            answer = response.text.strip()
-        except Exception as e:
-            answer = f"Error from Gemini: {e}"
+        # Input
+        user_input = st.chat_input("Ask StudyBuddy anything about studying abroad...")
 
-        st.session_state.chat_history.append({"role": "assistant", "content": answer})
-        st.rerun()
+        if user_input:
+            # add user message
+            st.session_state.chat_history.append({"role": "user", "content": user_input})
+            with st.chat_message("user"):
+                st.markdown(f'<div class="chat-bubble-user">{user_input}</div>', unsafe_allow_html=True)
+
+            # get reply
+            with st.chat_message("assistant"):
+                with st.spinner("Thinking like a senior counselor..."):
+                    reply = call_gemini_chat(st.session_state.chat_history)
+                st.markdown(f'<div class="chat-bubble-assistant">{reply}</div>', unsafe_allow_html=True)
+
+            st.session_state.chat_history.append({"role": "assistant", "content": reply})
+
+        st.markdown('</div>', unsafe_allow_html=True)
