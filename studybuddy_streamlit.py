@@ -310,7 +310,7 @@ def call_gemini_chat(history: List[Dict[str, str]]) -> str:
 # Streamlit UI Setup + Custom Styling
 # -------------------------------------
 st.set_page_config(
-    page_title="StudyBuddy (Gemini)",
+    page_title="StudyBuddy",
     page_icon="🎓",
     layout="wide",
 )
@@ -380,38 +380,15 @@ st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
 st.markdown(
     """
     <div style="
-        padding: 18px 22px;
+        padding: 22px 26px;
         border-radius: 20px;
-        background: linear-gradient(120deg, #1d4ed8, #22c55e, #4f46e5);
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 1rem;
-        box-shadow: 0 20px 50px rgba(15,23,42,0.8);
+        background: linear-gradient(120deg, #0ea5e9, #6366f1);
+        margin-bottom: 1.4rem;
+        box-shadow: 0 18px 45px rgba(0,0,0,0.45);
     ">
-      <div>
-        <div style="font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.18em; color: rgba(226,232,240,0.85); margin-bottom: 4px;">
-          AI-POWERED STUDY ABROAD WORKSPACE
+        <div style="font-size: 1.8rem; font-weight: 700; color: #f9fafb;">
+            StudyBuddy — Student Advisory Platform
         </div>
-        <div style="font-size: 1.6rem; font-weight: 700; color: #f9fafb;">
-          StudyBuddy — Study Abroad Assistant (Gemini)
-        </div>
-        <div style="font-size: 0.9rem; color: rgba(226,232,240,0.92); margin-top: 4px;">
-          Capture leads, pre-score students, chat like a professional counselor, and export reports in one place.
-        </div>
-      </div>
-      <div style="text-align: right; font-size: 0.8rem; color: rgba(226,232,240,0.9);">
-        <div style="
-          display: inline-flex;
-          align-items: center;
-          padding: 4px 12px;
-          border-radius: 999px;
-          background: rgba(15,23,42,0.35);
-          border: 1px solid rgba(191, 219, 254, 0.7);
-        ">
-          ⚡ Powered by Gemini
-        </div>
-      </div>
     </div>
     """,
     unsafe_allow_html=True,
