@@ -381,12 +381,13 @@ st.markdown(
     """
     <div style="
         padding: 22px 26px;
-        border-radius: 20px;
-        background: linear-gradient(120deg, #0ea5e9, #6366f1);
+        border-radius: 18px;
+        background: linear-gradient(135deg, #0f172a, #1e293b);
         margin-bottom: 1.4rem;
-        box-shadow: 0 18px 45px rgba(0,0,0,0.45);
+        border: 1px solid rgba(148,163,184,0.25);
+        box-shadow: 0 18px 40px rgba(0,0,0,0.55);
     ">
-        <div style="font-size: 1.8rem; font-weight: 700; color: #f9fafb;">
+        <div style="font-size: 1.8rem; font-weight: 700; color: #f8fafc;">
             StudyBuddy — Student Advisory Platform
         </div>
     </div>
