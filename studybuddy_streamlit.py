@@ -317,45 +317,206 @@ st.set_page_config(
 
 CUSTOM_CSS = """
 <style>
+/* ============ GLOBAL ============ */
 .stApp {
-    background: radial-gradient(circle at top left, #1e293b 0, #020617 40%, #000 100%);
+    background: radial-gradient(circle at top left, #0f172a 0, #020617 40%, #000 100%);
     color: #e5e7eb;
-    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text",
+                 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
-/* Cards + containers */
+/* Scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+}
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+::-webkit-scrollbar-thumb {
+    background: rgba(148, 163, 184, 0.7);
+    border-radius: 999px;
+}
+
+/* ============ SIDEBAR ============ */
+section[data-testid="stSidebar"] {
+    background: rgba(15,23,42,0.98);
+    border-right: 1px solid rgba(148,163,184,0.3);
+}
+section[data-testid="stSidebar"] .css-1d391kg, 
+section[data-testid="stSidebar"] .css-12oz5g7 {
+    padding-top: 1rem !important;
+}
+section[data-testid="stSidebar"] h1,
+section[data-testid="stSidebar"] h2,
+section[data-testid="stSidebar"] h3 {
+    color: #e5e7eb !important;
+}
+.stSidebar .sidebar-title {
+    font-size: 1rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #9ca3af;
+    margin-bottom: 0.25rem;
+}
+.stSidebar .sidebar-subtitle {
+    font-size: 0.8rem;
+    color: #6b7280;
+}
+
+/* Sidebar selectbox styling */
+.stSidebar .stSelectbox > div > div {
+    background: rgba(15,23,42,0.9) !important;
+    border-radius: 999px !important;
+    border: 1px solid rgba(148,163,184,0.6) !important;
+}
+
+/* ============ CARDS & CONTAINERS ============ */
 .block-card {
-    background: rgba(15, 23, 42, 0.9);
-    border-radius: 22px;
-    padding: 22px 24px;
-    border: 1px solid rgba(148, 163, 184, 0.35);
-    box-shadow: 0 18px 40px rgba(15, 23, 42, 0.7);
+    background: linear-gradient(145deg, rgba(15,23,42,0.95), rgba(15,23,42,0.85));
+    border-radius: 30px;
+    padding: 24px 26px;
+    border: 1px solid rgba(148, 163, 184, 0.55);
+    box-shadow: 0 20px 60px rgba(15, 23, 42, 0.85);
+    backdrop-filter: blur(22px);
 }
 
-/* Form fields */
+/* Slim secondary card */
+.sub-card {
+    background: rgba(15,23,42,0.9);
+    border-radius: 20px;
+    padding: 16px 18px;
+    border: 1px solid rgba(148,163,184,0.35);
+}
+
+/* ============ HERO SECTION ============ */
+.hero-wrapper {
+    padding: 22px 26px;
+    border-radius: 28px;
+    background: radial-gradient(circle at top left, #38bdf8 0, #0f172a 35%, #020617 100%);
+    border: 1px solid rgba(148,163,184,0.4);
+    box-shadow: 0 24px 70px rgba(15,23,42,0.9);
+    margin-bottom: 1.4rem;
+}
+.hero-title {
+    font-size: 2.1rem;
+    font-weight: 750;
+    letter-spacing: 0.02em;
+    color: #f9fafb;
+}
+.hero-subtitle {
+    font-size: 0.98rem;
+    color: #e5e7eb;
+    max-width: 520px;
+}
+.hero-chip-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-top: 0.7rem;
+}
+.hero-chip {
+    font-size: 0.78rem;
+    padding: 0.24rem 0.7rem;
+    border-radius: 999px;
+    background: rgba(15,23,42,0.7);
+    border: 1px solid rgba(148,163,184,0.5);
+    color: #e5e7eb;
+}
+
+/* CTA button in hero */
+.hero-cta {
+    margin-top: 1rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.55rem 1.2rem;
+    border-radius: 999px;
+    border: none;
+    background: linear-gradient(135deg, #22c55e, #16a34a);
+    color: #022c22;
+    font-weight: 600;
+    font-size: 0.9rem;
+    cursor: pointer;
+}
+.hero-cta span {
+    font-size: 1.1rem;
+}
+
+/* Right side highlight */
+.hero-highlight {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    font-size: 0.82rem;
+    color: #d1d5db;
+}
+.hero-metric-pill {
+    padding: 0.35rem 0.8rem;
+    border-radius: 999px;
+    background: rgba(15,23,42,0.8);
+    border: 1px solid rgba(148,163,184,0.4);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+/* ============ FORM FIELDS ============ */
 .stTextInput > div > div > input,
 .stTextArea textarea,
 .stSelectbox > div > div > select {
     background-color: rgba(15, 23, 42, 0.95) !important;
-    border-radius: 12px !important;
+    border-radius: 14px !important;
     border: 1px solid rgba(148, 163, 184, 0.7) !important;
     color: #e5e7eb !important;
+    font-size: 0.9rem;
+}
+.stTextArea textarea {
+    min-height: 120px;
+}
+.stTextInput > label,
+.stTextArea > label,
+.stSelectbox > label {
+    font-size: 0.84rem;
+    color: #cbd5f5 !important;
 }
 
-/* Buttons */
+/* Checkbox */
+.stCheckbox > label {
+    font-size: 0.85rem;
+}
+
+/* ============ BUTTONS ============ */
 .stButton button {
     border-radius: 999px;
-    padding: 0.4rem 1.2rem;
+    padding: 0.45rem 1.4rem;
     border: none;
     font-weight: 600;
+    font-size: 0.9rem;
+    background: linear-gradient(135deg, #4f46e5, #22c55e);
+    color: #f9fafb;
+    box-shadow: 0 10px 25px rgba(15,23,42,0.9);
+}
+.stButton button:hover {
+    filter: brightness(1.03);
+    transform: translateY(-1px);
 }
 
-/* Chat bubbles */
+/* ============ METRICS ============ */
+[data-testid="stMetricValue"] {
+    font-size: 1.3rem !important;
+    color: #e5e7eb !important;
+}
+[data-testid="stMetricLabel"] {
+    color: #9ca3af !important;
+}
+
+/* ============ CHATBOT ============ */
 .chat-bubble-user {
     background: linear-gradient(135deg, #1e40af, #22c55e);
     color: white;
     padding: 10px 14px;
-    border-radius: 16px 16px 2px 16px;
+    border-radius: 18px 18px 4px 18px;
     max-width: 100%;
     font-size: 0.95rem;
 }
@@ -363,37 +524,120 @@ CUSTOM_CSS = """
     background: rgba(15, 23, 42, 0.95);
     border: 1px solid rgba(148, 163, 184, 0.5);
     padding: 10px 14px;
-    border-radius: 16px 16px 16px 2px;
+    border-radius: 18px 18px 18px 4px;
     max-width: 100%;
     font-size: 0.95rem;
 }
 
-/* Metrics */
-.css-1ht1j8u, .css-12w0qpk {  /* metric label/value may change with versions */
-    color: #e5e7eb !important;
+/* Chat "pill" hint */
+.chat-hint-pill {
+    display: inline-flex;
+    gap: 0.35rem;
+    align-items: center;
+    padding: 0.3rem 0.8rem;
+    border-radius: 999px;
+    border: 1px solid rgba(148,163,184,0.4);
+    font-size: 0.76rem;
+    color: #9ca3af;
+}
+
+/* ============ TABLE / EXPANDERS ============ */
+[data-testid="stExpander"] div[role="button"] {
+    background: rgba(15,23,42,0.9);
+    border-radius: 18px;
+    border: 1px solid rgba(148,163,184,0.45);
+}
+[data-testid="stExpander"] {
+    border-radius: 18px;
+    margin-bottom: 0.6rem;
+}
+
+/* Links */
+a {
+    color: #38bdf8;
+}
+a:hover {
+    text-decoration: none;
+}
+
+/* Divider text */
+.section-label {
+    font-size: 0.82rem;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: #6b7280;
+}
+
+/* Small tag line */
+.text-soft {
+    font-size: 0.8rem;
+    color: #9ca3af;
 }
 </style>
 """
 st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
 
 # Hero header
-st.markdown(
-    """
-    <div style="
-        padding: 22px 26px;
-        border-radius: 18px;
-        background: linear-gradient(135deg, #0f172a, #1e293b);
-        margin-bottom: 1.4rem;
-        border: 1px solid rgba(148,163,184,0.25);
-        box-shadow: 0 18px 40px rgba(0,0,0,0.55);
-    ">
-        <div style="font-size: 1.8rem; font-weight: 700; color: #f8fafc;">
-            StudyBuddy — Student Advisory Platform
+# Hero / landing header
+col_hero_left, col_hero_right = st.columns([2, 1], gap="large")
+
+with col_hero_left:
+    st.markdown(
+        """
+        <div class="hero-wrapper">
+            <div class="hero-title">
+                StudyBuddy — AI Student Advisory Platform
+            </div>
+            <div class="hero-subtitle">
+                Collect student profiles, auto-score them, generate AI city suggestions,
+                and manage everything from one clean dashboard with counselor views and a built-in chatbot.
+            </div>
+            <div class="hero-chip-row">
+                <div class="hero-chip">AI city suggestions</div>
+                <div class="hero-chip">Pre-interview scoring</div>
+                <div class="hero-chip">Counselor workspace</div>
+                <div class="hero-chip">PDF reports</div>
+                <div class="hero-chip">Chatbot powered by Gemini</div>
+            </div>
+            <button class="hero-cta">
+                <span>🎓</span> Start with student intake
+            </button>
         </div>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
+        """,
+        unsafe_allow_html=True,
+    )
+
+with col_hero_right:
+    st.markdown(
+        """
+        <div class="hero-wrapper" style="padding: 16px 18px; min-height: 100%;">
+            <div class="hero-highlight">
+                <div class="hero-metric-pill">
+                    <span>⚡</span>
+                    <span>Instant AI city suggestions per profile</span>
+                </div>
+                <div class="hero-metric-pill">
+                    <span>📊</span>
+                    <span>Pre-interview scores out of 100</span>
+                </div>
+                <div class="hero-metric-pill">
+                    <span>👥</span>
+                    <span>Admin & counselor views separated</span>
+                </div>
+                <div class="hero-metric-pill">
+                    <span>🤖</span>
+                    <span>Chatbot for study-abroad questions</span>
+                </div>
+                <div class="text-soft">
+                    Use the sidebar to switch between modes: 
+                    <strong>Apply, Dashboard, Admin, Counselor, Chatbot.</strong>
+                </div>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
 
 # Sidebar mode selection
 mode = st.sidebar.selectbox(
@@ -407,7 +651,7 @@ mode = st.sidebar.selectbox(
 if mode == "Apply (Student)":
     with st.container():
         st.markdown('<div class="block-card">', unsafe_allow_html=True)
-        st.subheader("Quick intake + pre-interview questions")
+        st.subheader("Quick intake")
 
         col1, col2 = st.columns(2)
         with st.form("student_form"):
@@ -678,7 +922,7 @@ elif mode == "Counselor":
 elif mode == "Chatbot":
     with st.container():
         st.markdown('<div class="block-card">', unsafe_allow_html=True)
-        st.subheader("StudyBuddy Chatbot (Gemini)")
+        st.subheader("StudyBuddy Chatbot ")
 
         if "chat_history" not in st.session_state:
             st.session_state.chat_history = []
